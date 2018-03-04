@@ -25,7 +25,7 @@ public class GachaManager : MonoBehaviour
     List<string> selectedMutualFollowers = new List<string>();
     List<string> randomList;
     GachaPerformanceDirector performaceDirector;
-    GachaFollowerCreator gachaFollowerCreator;
+    FollowerAbilityMaker followerAbilityMaker;
     GachaUIManager gachaUIManager;
     GachaDataManager gachaDataManager;
 
@@ -42,7 +42,7 @@ public class GachaManager : MonoBehaviour
     {
         gachaUIManager = GameObject.Find("GachaUIManager").GetComponent<GachaUIManager>();
         performaceDirector = GameObject.Find("GachaPerformanceDirector").GetComponent<GachaPerformanceDirector>();
-        gachaFollowerCreator = new GachaFollowerCreator();
+        followerAbilityMaker = new FollowerAbilityMaker();
         gachaDataManager = new GachaDataManager();
 
         twitterComponentHandler = GameObject.Find("TwitterComponentHandler").GetComponent<TwitterComponentHandler>();
@@ -119,7 +119,7 @@ public class GachaManager : MonoBehaviour
 
         debugImage = images[UnityEngine.Random.Range(0, images.Length)];
         CharacterAttribute attribute = AttributeUtil.GetCharacterAttributeByTexture(debugImage.texture);
-        FollowerData debugFollower = new FollowerData("だいこん！", "12312", 50, attribute, 6, 2, debugImage.name);
+        FollowerEntity debugFollower = new FollowerEntity("だいこん！", "12312", 50, attribute, 6, 2, debugImage.name);
 
         imageObj.GetComponent<Image>().sprite = debugImage;
 
@@ -228,18 +228,11 @@ public class GachaManager : MonoBehaviour
     /// <returns>エミュレータ</returns>
 	IEnumerator IGetImage(JSONNode jsonParam)
     {
-        string imageURL = "";
+
 
         Debug.Log(jsonParam);
-        foreach (JSONNode json in jsonParam)
-        {
 
-            string newStr = json["profile_image_url_https"];
-
-            imageURL = newStr;
-            break;
-        }
-
+        string imageURL = jsonParam[0]["profile_image_url_https"];
         imageURL = imageURL.Replace("normal.jpg", "400x400.jpg");
         WWW www = new WWW(imageURL);
         yield return www;
@@ -253,7 +246,7 @@ public class GachaManager : MonoBehaviour
 
 
 
-        FollowerData followerData = MakeFollowerStatus(jsonParam, attribute, imageURL);
+        FollowerEntity followerData = MakeFollowerStatus(jsonParam, attribute);
 
         string playerId = PlayerPrefs.GetString(TwitterComponentHandler.PLAYER_PREFS_TWITTER_USER_ID);
 
@@ -273,14 +266,16 @@ public class GachaManager : MonoBehaviour
     /// <param name="attribute">属性</param>
     /// <param name="imageURL">プロフィール画像のURL</param>
     /// <returns></returns>
-    public FollowerData MakeFollowerStatus(JSONNode jsonParam, CharacterAttribute attribute, string imageURL)
+    public FollowerEntity MakeFollowerStatus(JSONNode jsonParam, CharacterAttribute attribute)
     {
-        int hp = gachaDataManager.DecideHp(attribute);
-        int attackForce = gachaDataManager.DecideAttackForce(attribute);
-        int defenceForce = gachaDataManager.DecideDefenceForce(attribute);
-        string[] skillNames = gachaDataManager.DecideSkills(attribute);
-        //  フォロワーデータを保存
-        FollowerData followerData = new FollowerData()
+        followerAbilityMaker.SetGachaFollowerEntityFromJson(jsonParam, attribute);
+        int hp = followerAbilityMaker.DecideHp();
+        int attackForce = followerAbilityMaker.DecideAttackForce();
+        int defenceForce = followerAbilityMaker.DecideDefenceForce();
+        string[] skillNames = followerAbilityMaker.DecideSkills();
+
+        //  フォロワーデータを生成
+        FollowerEntity followerData = new FollowerEntity()
         {
             name = jsonParam[0]["name"],
             id_str = jsonParam[0]["id_str"],
@@ -289,7 +284,7 @@ public class GachaManager : MonoBehaviour
             attackForce = attackForce,
             defenceForce = defenceForce,
             skillNames = skillNames,
-            image_url = imageURL
+            image_url = jsonParam[0]["profile_image_url_https"]
         };
         return followerData;
     }
